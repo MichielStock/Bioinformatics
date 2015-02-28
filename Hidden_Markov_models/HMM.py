@@ -62,6 +62,8 @@ class HiddenMarkovModel:
     def set_emission_probabilities(self, emission_probs):
         if emission_probs.shape[0] == self._n_symbols and \
             emission_probs.shape[1] == self._n_states:
+            # normalise
+            #emission_probs /= emission_probs.sum(0)
             self._emission_probs = emission_probs
             self._log_emission_probs = np.log(emission_probs)
         else:
@@ -71,6 +73,8 @@ class HiddenMarkovModel:
     def set_transition_probabilities(self, transition_probs):
         if transition_probs.shape[0] == self._n_states and \
             transition_probs.shape[1] == self._n_states:
+            # normalise
+            #transition_probs /= transition_probs.sum(0)
             self._transition_probs = transition_probs
             self._log_transition_probs = np.log(transition_probs)
         else:
@@ -184,7 +188,20 @@ class HiddenMarkovModel:
         '''
         dynamic_prog_matrix = self.generate_sum_product(sequence)
         return dynamic_prog_matrix[:, -1].sum()
-
+"""
+    def viberti_training(self, instances, pseudo_transition=1.0, pseudo_emission=1.0,\
+            pseudo_start=1.0, epsilon=1e-3):
+        '''
+        A very basic training algorithm for learning the parameters of a HMM
+        based on a set of example instances, uses pseudocounts as regularization
+        Learning is done by iteratively inferring the hidden states and by
+        determining the parameters by counting
+        '''
+        # random initialisation of the parameters
+        self.set_starting_probabilities(np.ones((self._n_states))/self._n_states)
+        transition = np.random.rand(self._n_states, self._n_states)
+        transition = (transition.T/transition.sum(0)).T
+"""
 if __name__ == '__main__':
     symbols = ['H', 'T']
     states = ['F', 'B']
