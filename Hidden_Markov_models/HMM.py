@@ -120,9 +120,9 @@ class HiddenMarkovModel:
         dynamic_prog_matrix[:,0] = self._log_starting_probs
         for position, symb_ind in enumerate(symbol_indices[1:], 1):
             for state_ind, state in enumerate(self._states):
-                gains = [dynamic_prog_matrix[position - 1]\
-                        + self._log_transition_probs[position -1, position]\
-                        + self._log_emission_probs[symb_ind, position]\
+                gains = [dynamic_prog_matrix[s_prev, position - 1]\
+                        + self._log_transition_probs[s_prev, state_ind]\
+                        + self._log_emission_probs[symb_ind, state_ind]\
                         for s_prev in range(self._n_states)]
                 dynamic_prog_matrix[state_ind, position] = np.max(gains)
         print dynamic_prog_matrix
