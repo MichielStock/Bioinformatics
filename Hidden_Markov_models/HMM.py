@@ -110,14 +110,15 @@ class HiddenMarkovModel:
                     self._emission_probs[:, state_nr])])
         return hidden_chain, symbols_chain
 
-    def viterbi(self, sequence):
+    def generate_max_product(self, sequence, keep_pointer=True):
         """
-        Finds the most likely path of hidden variables
+        Fills in the dynamic programming matrix for dynamic programming
         """
         symbol_indices = map(lambda seq:self._symbol_mapping[seq],list(sequence))
         # fill the matrix
         dynamic_prog_matrix = np.zeros((self._n_states, len(sequence)))
         dynamic_prog_matrix[:,0] = self._log_starting_probs
+        pointers = [np.argmax(dynamic_prog_matrix[:,0])]
         for position, symb_ind in enumerate(symbol_indices[1:], 1):
             for state_ind, state in enumerate(self._states):
                 gains = [dynamic_prog_matrix[s_prev, position - 1]\
@@ -125,22 +126,36 @@ class HiddenMarkovModel:
                         + self._log_emission_probs[symb_ind, state_ind]\
                         for s_prev in range(self._n_states)]
                 dynamic_prog_matrix[state_ind, position] = np.max(gains)
-        print dynamic_prog_matrix
+                if keep_pointer:
+                    pointers.append(np.argmax(gains))
+        if keep_pointer:
+            return dynamic_prog_matrix, pointers
+        else:
+            return dynamic_prog_matrix
 
+    def viterbi(self, sequence):
+        dynamic_prog_matrix, pointers = self.generate_max_product(sequence, True)
+        inferred_hidden_states = [self._states[np.argmax(dynamic_prog_matrix[:, -1])]]
+        while len(inferred_hidden_states) < len(sequence):
+            pointer = pointers.pop()
+            state = self._states[pointer]
+            inferred_hidden_states = [state] + inferred_hidden_states
+        return inferred_hidden_states
 
 if __name__ == '__main__':
     symbols = ['H', 'T']
     states = ['F' , 'B']
 
-    emis_probs = np.array([[0.5, 0.2], [0.5, 0.8]])
-    trans_probs = np.array([[0.95, 0.05], [0.1, 0.9]])
+    emis_probs = np.array([[0.5, 0.05], [0.5, 0.95]])
+    trans_probs = np.array([[0.9, 0.1], [0.1, 0.9]])
 
     HMM = HiddenMarkovModel(states, symbols)
     HMM.set_emission_probabilities(emis_probs)
     HMM.set_transition_probabilities(trans_probs)
     HMM.set_starting_probabilities(np.array([1, 0]))
     hidden, symbols = HMM.simulate_chain(100)
-    print ''.join(hidden)
     print ''.join(symbols)
+    print ''.join(hidden)
 
-    HMM.viterbi(symbols)
+    inferred = HMM.viterbi(symbols)
+    print ''.join(inferred)
