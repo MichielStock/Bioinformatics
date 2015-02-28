@@ -112,7 +112,7 @@ class HiddenMarkovModel:
 
     def generate_max_product(self, sequence, keep_pointer=True):
         """
-        Fills in the dynamic programming matrix for dynamic programming
+        Fills in the dynamic programming matrix for viberti
         """
         symbol_indices = map(lambda seq:self._symbol_mapping[seq],list(sequence))
         # fill the matrix
@@ -138,7 +138,11 @@ class HiddenMarkovModel:
         else:
             return dynamic_prog_matrix
 
-    def viterbi(self, sequence):
+    def viterbi(self, sequence, return_log_prob=False):
+        '''
+        Calculate the most likely hidden states for a given sequence
+        set return_log_prob to true to also get the log conditional probabilty
+        '''
         dynamic_prog_matrix, pointers = self.generate_max_product(sequence, True)
         state_ind = np.argmax(dynamic_prog_matrix[:, -1])
         inferred_hidden_states = [self._states[state_ind]]
@@ -148,13 +152,44 @@ class HiddenMarkovModel:
             state = self._states[state_ind]
             inferred_hidden_states = [state] + inferred_hidden_states
             pos -= 1
-        return inferred_hidden_states
+        if not return_log_prob:
+            return inferred_hidden_states
+        else:
+            return inferred_hidden_states, np.max(dynamic_prog_matrix[:,-1])
+
+    def generate_sum_product(self, sequence):
+        '''
+        Calculate dynamic programming matrix for forward algorithms
+        '''
+        symbol_indices = map(lambda seq:self._symbol_mapping[seq], list(sequence))
+        # fill the matrix
+        dynamic_prog_matrix = np.zeros((self._n_states, len(sequence)))
+        for state_ind, state in enumerate(self._states):
+            init_symbol_ind = symbol_indices[0]
+            dynamic_prog_matrix[state_ind, 0] = \
+                    self._starting_probs[state_ind]\
+                    * self._emission_probs[init_symbol_ind, state_ind]
+        for position, symb_ind in enumerate(symbol_indices[1:], 1):
+            for state_ind, state in enumerate(self._states):
+                gains = [dynamic_prog_matrix[s_prev, position - 1]\
+                        * self._transition_probs[s_prev, state_ind]\
+                        * self._emission_probs[symb_ind, state_ind]\
+                        for s_prev in range(self._n_states)]
+                dynamic_prog_matrix[state_ind, position] = np.sum(gains)
+        return dynamic_prog_matrix
+
+    def forward_algorithm(self, sequence):
+        '''
+        Calculate the probability of the sequence according to the HMM
+        '''
+        dynamic_prog_matrix = self.generate_sum_product(sequence)
+        return dynamic_prog_matrix[:, -1].sum()
 
 if __name__ == '__main__':
     symbols = ['H', 'T']
     states = ['F', 'B']
 
-    emis_probs = np.array([[0.5, 0.05], [0.5, 0.95]])
+    emis_probs = np.array([[0.5, 0.1], [0.5, 0.90]])
     trans_probs = np.array([[0.8, 0.2], [0.2, 0.8]])
 
     HMM = HiddenMarkovModel(states, symbols)
@@ -165,5 +200,10 @@ if __name__ == '__main__':
     print ''.join(symbols)
     print ''.join(hidden)
 
-    inferred = HMM.viterbi(symbols)
-    print ''.join(inferred)
+    inferred, log_cond_prob = HMM.viterbi(symbols, return_log_prob=True)
+    print ''.join(inferred), '\n'
+
+    probability = HMM.forward_algorithm(symbols)
+
+    print 'log likelihood most likely sequence is %.3f, total log likelihood is %.3f'\
+            %(log_cond_prob, np.log(probability))
