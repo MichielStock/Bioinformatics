@@ -57,11 +57,13 @@ class HiddenMarkovModel:
         else:
             print '"symbols" have to be a list or the number of states'
             raise AttributeError
+        self._symbol_mapping = {s:i for i, s in enumerate(self._symbols)}
 
     def set_emission_probabilities(self, emission_probs):
         if emission_probs.shape[0] == self._n_symbols and \
             emission_probs.shape[1] == self._n_states:
             self._emission_probs = emission_probs
+            self._log_emission_probs = np.log(emission_probs)
         else:
             print 'Provided matrix is of wrong shape!'
             raise IndexError
@@ -70,6 +72,7 @@ class HiddenMarkovModel:
         if transition_probs.shape[0] == self._n_states and \
             transition_probs.shape[1] == self._n_states:
             self._transition_probs = transition_probs
+            self._log_transition_probs = np.log(transition_probs)
         else:
             print 'Provided matrix is of wrong shape!'
             raise IndexError
@@ -77,6 +80,7 @@ class HiddenMarkovModel:
     def set_starting_probabilities(self, starting_probs):
         if len(starting_probs) == self._n_states:
             self._starting_probs = starting_probs
+            self._log_starting_probs = np.log(starting_probs)
         else:
             print 'Provided matrix is of wrong shape!'
             raise IndexError
@@ -106,6 +110,24 @@ class HiddenMarkovModel:
                     self._emission_probs[:, state_nr])])
         return hidden_chain, symbols_chain
 
+    def viterbi(self, sequence):
+        """
+        Finds the most likely path of hidden variables
+        """
+        symbol_indices = map(lambda seq:self._symbol_mapping[seq],list(sequence))
+        # fill the matrix
+        dynamic_prog_matrix = np.zeros((self._n_states, len(sequence)))
+        dynamic_prog_matrix[:,0] = self._log_starting_probs
+        for position, symb_ind in enumerate(symbol_indices[1:], 1):
+            for state_ind, state in enumerate(self._states):
+                gains = [dynamic_prog_matrix[position - 1]\
+                        + self._log_transition_probs[position -1, position]\
+                        + self._log_emission_probs[symb_ind, position]\
+                        for s_prev in range(self._n_states)]
+                dynamic_prog_matrix[state_ind, position] = np.max(gains)
+        print dynamic_prog_matrix
+
+
 if __name__ == '__main__':
     symbols = ['H', 'T']
     states = ['F' , 'B']
@@ -120,3 +142,5 @@ if __name__ == '__main__':
     hidden, symbols = HMM.simulate_chain(100)
     print ''.join(hidden)
     print ''.join(symbols)
+
+    HMM.viterbi(symbols)
