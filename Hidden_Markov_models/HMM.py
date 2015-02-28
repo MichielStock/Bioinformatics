@@ -10,6 +10,7 @@ Implementations of a basic HMM
 
 import numpy as np
 from random import random
+from collections import Counter
 
 def weighted_choice(probability_list):
     """
@@ -58,12 +59,13 @@ class HiddenMarkovModel:
             print '"symbols" have to be a list or the number of states'
             raise AttributeError
         self._symbol_mapping = {s:i for i, s in enumerate(self._symbols)}
+        self._state_mapping = {s:i for i, s in enumerate(self._states)}
 
     def set_emission_probabilities(self, emission_probs):
         if emission_probs.shape[0] == self._n_symbols and \
             emission_probs.shape[1] == self._n_states:
             # normalise
-            #emission_probs /= emission_probs.sum(0)
+            emission_probs /= emission_probs.sum(0)
             self._emission_probs = emission_probs
             self._log_emission_probs = np.log(emission_probs)
         else:
@@ -74,7 +76,7 @@ class HiddenMarkovModel:
         if transition_probs.shape[0] == self._n_states and \
             transition_probs.shape[1] == self._n_states:
             # normalise
-            #transition_probs /= transition_probs.sum(0)
+            transition_probs = (transition_probs.T/transition_probs.sum(1)).T
             self._transition_probs = transition_probs
             self._log_transition_probs = np.log(transition_probs)
         else:
@@ -83,6 +85,7 @@ class HiddenMarkovModel:
 
     def set_starting_probabilities(self, starting_probs):
         if len(starting_probs) == self._n_states:
+            starting_probs /= starting_probs.sum()
             self._starting_probs = starting_probs
             self._log_starting_probs = np.log(starting_probs)
         else:
@@ -188,9 +191,9 @@ class HiddenMarkovModel:
         '''
         dynamic_prog_matrix = self.generate_sum_product(sequence)
         return dynamic_prog_matrix[:, -1].sum()
-"""
-    def viberti_training(self, instances, pseudo_transition=1.0, pseudo_emission=1.0,\
-            pseudo_start=1.0, epsilon=1e-3):
+
+    def viberti_training(self, instances, pseudo_transition=10.0, pseudo_emission=10.0,\
+            pseudo_start=10.0, epsilon=1e-3):
         '''
         A very basic training algorithm for learning the parameters of a HMM
         based on a set of example instances, uses pseudocounts as regularization
@@ -198,10 +201,47 @@ class HiddenMarkovModel:
         determining the parameters by counting
         '''
         # random initialisation of the parameters
-        self.set_starting_probabilities(np.ones((self._n_states))/self._n_states)
-        transition = np.random.rand(self._n_states, self._n_states)
-        transition = (transition.T/transition.sum(0)).T
-"""
+        self.set_starting_probabilities(np.ones((self._n_states)))
+        self.set_transition_probabilities(np.random.rand(self._n_states, self._n_states))
+        self.set_emission_probabilities(np.random.rand(self._n_symbols, self._n_states))
+        old_log_likelihood = -1e10
+        self.likelihoods = [self.calculate_log_likelihood_instances(instances)]
+        while np.abs(old_log_likelihood - self.likelihoods[-1]) > epsilon:
+            print self.likelihoods[-1]
+            # get hidden states
+            inf_hidden_states = [self.viterbi(seq) for seq in instances]
+            # starting probabilities
+            trans_prob = np.zeros(self._transition_probs.shape)
+            start_prob = np.zeros(self._starting_probs.shape)
+            emis_prob = np.zeros(self._emission_probs.shape)
+            for sequence, hidden_seq in zip(instances, inf_hidden_states):
+                seq_indices = map(lambda seq:self._symbol_mapping[seq], list(sequence))
+                hidden_indices = map(lambda state:self._state_mapping[state], list(hidden_seq))
+                start_prob[hidden_indices[0]] += 1  # count start
+                emis_prob[seq_indices[0], hidden_indices[0]] += 1  # count emission
+                for symbol_i, symbol_ip1, state_i, state_ip1 in\
+                        zip(seq_indices[:-1], seq_indices[1:],\
+                        hidden_indices[:-1], hidden_indices[1:]):
+                    print symbol_i, symbol_ip1, state_i, state_ip1
+                    trans_prob[state_i, state_ip1] =\
+                        trans_prob[state_i, state_ip1] + 1  # count transition
+                    emis_prob[state_ip1, symbol_ip1] =\
+                        emis_prob[state_ip1, symbol_ip1] + 1  # count emission
+            banaan
+            self.set_starting_probabilities(start_prob + pseudo_start)
+            self.set_transition_probabilities(trans_prob + pseudo_transition)
+            self.set_emission_probabilities(emis_prob + pseudo_emission)
+            old_log_likelihood = self.likelihoods[-1]
+            self.likelihoods.append(self.calculate_log_likelihood_instances(instances))
+            banaan
+
+    def calculate_log_likelihood_instances(self, instances):
+        '''
+        gives log likelihood instances
+        '''
+        likelihoods = [self.forward_algorithm(seq) for seq in instances]
+        return np.sum(np.log(likelihoods))
+
 if __name__ == '__main__':
     symbols = ['H', 'T']
     states = ['F', 'B']
@@ -213,14 +253,25 @@ if __name__ == '__main__':
     HMM.set_emission_probabilities(emis_probs)
     HMM.set_transition_probabilities(trans_probs)
     HMM.set_starting_probabilities(np.array([1, 0]))
-    hidden, symbols = HMM.simulate_chain(100)
+    hidden, symb_seq = HMM.simulate_chain(100)
     print ''.join(symbols)
     print ''.join(hidden)
 
-    inferred, log_cond_prob = HMM.viterbi(symbols, return_log_prob=True)
+    inferred, log_cond_prob = HMM.viterbi(symb_seq, return_log_prob=True)
     print ''.join(inferred), '\n'
 
-    probability = HMM.forward_algorithm(symbols)
+    probability = HMM.forward_algorithm(symb_seq)
 
     print 'log likelihood most likely sequence is %.3f, total log likelihood is %.3f'\
             %(log_cond_prob, np.log(probability))
+
+    # test training on chains
+
+    training_inst = [HMM.simulate_chain(100)[1] for i in range(10)]
+    HMM.viberti_training(training_inst)
+
+    print 'estimated transition:'
+    HMM._transition_probs
+
+    print 'estimated emission:'
+    HMM._emission_probs
