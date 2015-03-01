@@ -300,7 +300,7 @@ if __name__ == '__main__':
     print
 
 
-    training_inst = [HMM_die.simulate_chain(250)[1] for i in range(100)]
+    training_inst = [HMM_die.simulate_chain(100)[1] for i in range(100)]
     HMM_die.viberti_training(training_inst, 10, 10, 10)
 
     print 'Estimated transition matrix:'
