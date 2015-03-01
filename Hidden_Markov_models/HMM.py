@@ -219,7 +219,7 @@ class HiddenMarkovModel:
         self.set_transition_probabilities(np.random.rand(self._n_states, self._n_states)+pseudo_transition)
         self.set_emission_probabilities(np.random.rand(self._n_symbols, self._n_states)+pseudo_emission)
         old_log_likelihood = -1e10
-        self.likelihoods = [self.calculate_log_likelihood_instances(instances)]
+        self.likelihoods = [self.calculate_max_log_likelihood(instances)]
         iteration = 1
         while np.abs(old_log_likelihood - self.likelihoods[-1]) > epsilon:
             print 'Iteration %s: log likelihood is %.f5'\
@@ -247,7 +247,7 @@ class HiddenMarkovModel:
             self.set_transition_probabilities(trans_prob + pseudo_transition)
             self.set_emission_probabilities(emis_prob + pseudo_emission)
             old_log_likelihood = self.likelihoods[-1]
-            self.likelihoods.append(self.calculate_log_likelihood_instances(instances))
+            self.likelihoods.append(self.calculate_max_log_likelihood(instances))
             iteration += 1
 
     def calculate_log_likelihood_instances(self, instances):
@@ -296,7 +296,7 @@ if __name__ == '__main__':
 
     emis_probs = np.array([[1./6]*6, [0.5, 0, 0, 0, 0, 0.5],\
             [0.4, 0.4, 0.05, 0.05, 0.05, 0.05]]).T
-    trans_probs = np.array([[0.9, 0.1, 0], [0.05, 0.9, 0.05], [0.1, 0., 0.9]])
+    trans_probs = np.array([[0.9, 0.1, 0], [0.05, 0.9, 0.05], [0.1, 0.4, 0.5]])
 
     HMM_die = HiddenMarkovModel(states, symbols)
     HMM_die.set_emission_probabilities(emis_probs)
@@ -318,7 +318,7 @@ if __name__ == '__main__':
 
 
     training_inst = [HMM_die.simulate_chain(100)[1] for i in range(100)]
-    HMM_die.viberti_training(training_inst, 10, 10, 10)
+    HMM_die.viberti_training(training_inst, 100, 100, 100)
 
     print 'Estimated transition matrix:'
     print HMM_die.get_transition_probabilities()
