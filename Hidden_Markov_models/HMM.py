@@ -164,6 +164,20 @@ class HiddenMarkovModel:
         else:
             return inferred_hidden_states, np.max(dynamic_prog_matrix[:,-1])
 
+    def calculate_max_log_likelihood(self, instances):
+        '''
+        calculates the max log likelihood:
+            max_ll = max P(s|x)
+        '''
+        if type(instances) == list:
+            likelihoods = []
+            for seq in instances:
+                DPM = self.generate_max_product(seq, False)
+                likelihoods.append(np.max(DPM[:, -1]))
+            return np.sum(likelihoods)
+        else:
+            return np.max(self.generate_max_product(seq, False)[:,-1])
+
     def generate_sum_product(self, sequence):
         '''
         Calculate dynamic programming matrix for forward algorithms
@@ -238,10 +252,13 @@ class HiddenMarkovModel:
 
     def calculate_log_likelihood_instances(self, instances):
         '''
-        gives log likelihood instances
+        gives max log likelihood instances
         '''
-        likelihoods = [self.forward_algorithm(seq) for seq in instances]
-        return np.sum(likelihoods)
+        if type(instances) == list:
+            likelihoods = [self.forward_algorithm(seq) for seq in instances]
+            return np.sum(likelihoods)
+        else:
+            return self.forward_algorithm(instances)
 
 if __name__ == '__main__':
 
