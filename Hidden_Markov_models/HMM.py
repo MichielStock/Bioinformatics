@@ -10,7 +10,6 @@ Implementations of a basic HMM
 
 import numpy as np
 from random import random
-from collections import Counter
 
 def weighted_choice(probability_list):
     """
@@ -175,23 +174,23 @@ class HiddenMarkovModel:
         for state_ind, state in enumerate(self._states):
             init_symbol_ind = symbol_indices[0]
             dynamic_prog_matrix[state_ind, 0] = \
-                    self._starting_probs[state_ind]\
-                    * self._emission_probs[init_symbol_ind, state_ind]
+                    self._log_starting_probs[state_ind]\
+                    + self._log_emission_probs[init_symbol_ind, state_ind]
         for position, symb_ind in enumerate(symbol_indices[1:], 1):
             for state_ind, state in enumerate(self._states):
                 gains = [dynamic_prog_matrix[s_prev, position - 1]\
-                        * self._transition_probs[s_prev, state_ind]\
-                        * self._emission_probs[symb_ind, state_ind]\
+                        + self._log_transition_probs[s_prev, state_ind]\
+                        + self._log_emission_probs[symb_ind, state_ind]\
                         for s_prev in range(self._n_states)]
-                dynamic_prog_matrix[state_ind, position] = np.sum(gains)
+                dynamic_prog_matrix[state_ind, position] = np.log(np.sum(np.exp(gains)))
         return dynamic_prog_matrix
 
     def forward_algorithm(self, sequence):
         '''
-        Calculate the probability of the sequence according to the HMM
+        Calculate the log probability of the sequence according to the HMM
         '''
         dynamic_prog_matrix = self.generate_sum_product(sequence)
-        return dynamic_prog_matrix[:, -1].sum()
+        return np.log(np.exp(dynamic_prog_matrix[:, -1]).sum())
 
     def viberti_training(self, instances, pseudo_transition=1.0, pseudo_emission=1.0,\
             pseudo_start=1.0, epsilon=1e-3):
@@ -205,14 +204,12 @@ class HiddenMarkovModel:
         self.set_starting_probabilities(np.random.rand(self._n_states)+pseudo_start)
         self.set_transition_probabilities(np.random.rand(self._n_states, self._n_states)+pseudo_transition)
         self.set_emission_probabilities(np.random.rand(self._n_symbols, self._n_states)+pseudo_emission)
-        print 'transition:'
-        print self.get_transition_probabilities()
-        print 'emission:'
-        print self.get_emission_probabilities()
         old_log_likelihood = -1e10
         self.likelihoods = [self.calculate_log_likelihood_instances(instances)]
+        iteration = 1
         while np.abs(old_log_likelihood - self.likelihoods[-1]) > epsilon:
-            print self.likelihoods[-1]
+            print 'Iteration %s: log likelihood is %.f5'\
+                    %(iteration, self.likelihoods[-1])
             # get hidden states
             inf_hidden_states = [self.viterbi(seq) for seq in instances]
             # starting probabilities
@@ -230,24 +227,21 @@ class HiddenMarkovModel:
                     #print symbol_i, symbol_ip1, state_i, state_ip1
                     trans_prob[state_i, state_ip1] =\
                         trans_prob[state_i, state_ip1] + 1  # count transition
-                    emis_prob[state_ip1, symbol_ip1] =\
-                        emis_prob[state_ip1, symbol_ip1] + 1  # count emission
+                    emis_prob[symbol_ip1, state_ip1] =\
+                        emis_prob[symbol_ip1, state_ip1] + 1  # count emission
             self.set_starting_probabilities(start_prob + pseudo_start)
             self.set_transition_probabilities(trans_prob + pseudo_transition)
             self.set_emission_probabilities(emis_prob + pseudo_emission)
-            print 'transition:'
-            print self.get_transition_probabilities()
-            print 'emission:'
-            print self.get_emission_probabilities()
             old_log_likelihood = self.likelihoods[-1]
             self.likelihoods.append(self.calculate_log_likelihood_instances(instances))
+            iteration += 1
 
     def calculate_log_likelihood_instances(self, instances):
         '''
         gives log likelihood instances
         '''
         likelihoods = [self.forward_algorithm(seq) for seq in instances]
-        return np.sum(np.log(likelihoods))
+        return np.sum(likelihoods)
 
 if __name__ == '__main__':
 
@@ -256,8 +250,8 @@ if __name__ == '__main__':
     symbols = ['H', 'T']
     states = ['F', 'B']
 
-    emis_probs = np.array([[0.5, 0.6], [0.5, 0.4]])
-    trans_probs = np.array([[0.7, 0.3], [0.2, 0.8]])
+    emis_probs = np.array([[0.5, 0.1], [0.5, 0.90]])
+    trans_probs = np.array([[0.8, 0.2], [0.2, 0.8]])
 
     HMM = HiddenMarkovModel(states, symbols)
     HMM.set_emission_probabilities(emis_probs)
@@ -275,7 +269,7 @@ if __name__ == '__main__':
 
 
     print 'log likelihood most likely sequence is %.3f, total log likelihood is %.3f'\
-            %(log_cond_prob, np.log(probability))
+            %(log_cond_prob, probability)
     print
 
     # loaded die
@@ -283,9 +277,9 @@ if __name__ == '__main__':
     symbols = [str(i) for i in range(1, 7)]
     states = ['F', 'L', 'H']
 
-    emis_probs = np.array([[1/6]*6, [0.1, 0.1, 0.1, 0.1, 0.1, 0.5],\
-            [0.3, 0.3, 0.3, 1/30.0, 1/30.0, 1/30.0]]).T
-    trans_probs = np.array([[0.9, 0.1, 0], [0.05, 0.9, 0.05], [0.1, 0.2, 0.7]])
+    emis_probs = np.array([[1./6]*6, [0.5, 0, 0, 0, 0, 0.5],\
+            [0.4, 0.4, 0.05, 0.05, 0.05, 0.05]]).T
+    trans_probs = np.array([[0.9, 0.1, 0], [0.05, 0.9, 0.05], [0.1, 0., 0.9]])
 
     HMM_die = HiddenMarkovModel(states, symbols)
     HMM_die.set_emission_probabilities(emis_probs)
@@ -302,16 +296,15 @@ if __name__ == '__main__':
     probability = HMM_die.forward_algorithm(symb_seq)
 
     print 'log likelihood most likely sequence is %.3f, total log likelihood is %.3f'\
-            %(log_cond_prob, np.log(probability))
+            %(log_cond_prob, probability)
     print
 
-    """
-    #training_inst = [HMM.simulate_chain(100)[1] for i in range(10)]
-    #HMM.viberti_training(training_inst)
 
-    print 'estimated transition:'
-    HMM._transition_probs
+    training_inst = [HMM_die.simulate_chain(250)[1] for i in range(100)]
+    HMM_die.viberti_training(training_inst, 10, 10, 10)
 
-    print 'estimated emission:'
-    HMM._emission_probs
-    """
+    print 'Estimated transition matrix:'
+    print HMM_die.get_transition_probabilities()
+
+    print 'Estimated emission matrix:'
+    print HMM_die.get_emission_probabilities()
