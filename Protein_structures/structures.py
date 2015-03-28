@@ -60,6 +60,7 @@ class StructurePDB:
                             # have the atom_id, take alpha carbon atom
                             # by default
                         self._coordinates.append(atom.get_coord())
+        return self._coordinates
 
     def make_3D_structure_plot(self, atom_id='CA', coloring=None):
         """
@@ -102,7 +103,14 @@ class StructurePDB:
         ax.imshow(dist_matrix<cutoff, interpolation='nearest')
         return fig, dist_matrix
 
-
+    def get_interaction_matrix(self, atom_id='CA', cutoff=10):
+        """
+        Returns interaction matrix between residues for given cutoff
+        """
+        coordinates = self.make_coordinates( atom_id='CA')
+        dist_matrix = distance.pdist(coordinates)
+        dist_matrix = distance.squareform(dist_matrix)
+        return dist_matrix <= 10
 
 
 if __name__ == "__main__":
