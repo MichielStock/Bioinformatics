@@ -12,8 +12,10 @@ from Bio import Entrez, SeqIO
 from MostFrequentK import most_frequent_k_hashing, most_frequent_k_similarity
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
-Entrez.email = 'michielfmstock@gmail.com'
+# enter mail for Entrez
+Entrez.email = 'emailadress@mail.com'
 
 
 # Read the accession numbers
@@ -46,29 +48,45 @@ fh.close()
 
 fig, axes = plt.subplots(nrows=2, ncols=3)
 
-Ks = [3, 5, 10]
-substr_lengths = [3, 6]
+Ks = [5, 10, 20]
+substr_lengths = [3, 5]
 
 for i in range(3):
     K = Ks[i]
     for j in range(2):
         substr_len = substr_lengths[j]
-        ax = axes[i][j]
+        ax = axes[j][i]
 
         # hash the genomes
         hashes = [most_frequent_k_hashing(genome, K, substr_len)\
                         for genome in genomes]
 
-        similarity_matrix = np.zeros((n_genomes,n_genomes))
+        similarity_matrix = np.zeros((n_genomes,n_genomes), dtype=int)
 
         for pos1 in range(n_genomes):
-            for pos2 in range(pos1):
+            for pos2 in range(pos1 + 1):
                 similarity = most_frequent_k_similarity(hashes[pos1],
                                                 hashes[pos2])
                 similarity_matrix[pos1, pos2] = similarity
                 similarity_matrix[pos2, pos1] = similarity
 
-        ax.imshow(similarity_matrix)
+        ax.imshow(similarity_matrix, cmap='hot')
         ax.set_title('K=%s feq. sim.\n(substr. len.=%s)'%(K, substr_len))
 
 fig.show()
+
+# on K = 5, substr_len = 3
+
+hashes = [most_frequent_k_hashing(genome, 5, 3) for genome in genomes]
+similarity_matrix = np.zeros((n_genomes,n_genomes), dtype=int)
+for pos1 in range(n_genomes):
+    for pos2 in range(pos1 + 1):
+        similarity = most_frequent_k_similarity(hashes[pos1],
+                                                hashes[pos2])
+        similarity_matrix[pos1, pos2] = similarity
+        similarity_matrix[pos2, pos1] = similarity
+
+virus_sim = pd.DataFrame(similarity_matrix)
+virus_sim.index = names
+
+virus_sim.to_csv('Virus_similarity.csv')
