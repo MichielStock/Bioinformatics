@@ -38,7 +38,7 @@ def calc_AC( seq, lag, Za, Zb = None ):
     return AC
 
 
-def protein_features(sequence, lagRange = range(1, 25),
+def protein_features(sequence, lagRange = range(1, 26),
                     discriptors = [Z_1, Z_2, Z_3]):
     """
     Calculates features of protein sequences based on lagged correlation
