@@ -52,7 +52,7 @@ def map_seq_to_int(sequence):
             sequence_array[i] = -1
     return sequence_array
 
-#@numba.jit
+@numba.jit
 def calc_correlation_feature(sequence_array, lag, prop_ind_1, prop_ind_2,
                                 descriptors=descriptors):
     """
@@ -71,7 +71,7 @@ def calc_correlation_feature(sequence_array, lag, prop_ind_1, prop_ind_2,
             n_components += 1
     return feature_value / n_components
 
-#@numba.jit
+@numba.jit
 def fill_correlation_features(sequence_array, feature_vector, lag_range,
                 discriptors=descriptors):
     k = len(lag_range)
@@ -80,10 +80,9 @@ def fill_correlation_features(sequence_array, feature_vector, lag_range,
     for lag in lag_range:
         for prop_i in range(p):
             for prop_j in range(p):
-                if prop_i >= prop_j:
-                    feature_vector[ind] = calc_correlation_feature(sequence_array,
-                    lag, prop_i, prop_j, descriptors)
-                    ind += 1
+                feature_vector[ind] = calc_correlation_feature(sequence_array,
+                lag, prop_i, prop_j, descriptors)
+                ind += 1
     return feature_vector
 
 
@@ -95,7 +94,7 @@ def protein_features(sequence, lag_range=range(1, 26),
     """
     k = len(lag_range)
     n_AA, p = discriptors.shape
-    n_features = (p + (p * (p - 1)) / 2) * k
+    n_features = p * p * k
     feature_vector = np.zeros(n_features)
     sequence_array = map_seq_to_int(sequence)
     feature_vector = fill_correlation_features(sequence_array, feature_vector,
