@@ -9,6 +9,7 @@ Create alignment independent features for proteins
 """
 
 import numpy as np
+import numba
 
 # amino acid descriptors
 
@@ -27,38 +28,77 @@ Z_3 = {'A': 0.09, 'V' : -1.29, 'L' : -0.98, 'I' : -1.03, 'P' : 2.23,
        'G' :0.30, 'S': 0.57, 'T' : -1.4, 'C' :4.13 , 'Y' : 0.01, 'N' : 0.84,
        'Q' : -1.14, 'D' : 2.36, 'E' : -0.07}
 
-def calc_AC( seq, lag, Za, Zb = None ):
-    if Zb is None:
-        Zb = Za
-    AC = 0
-    n = len(seq)
+amino_acids = set(Z_1.keys())
+
+# make a numpy array with the physicochemical properties
+# rows are the amino acids, columns are the properties
+descriptors = np.zeros((len(Z_1), 3))
+amino_acids_inversed_index = {}
+for i, AA in enumerate(Z_1.keys()):
+    amino_acids_inversed_index[AA] = i
+    descriptors[i, :] = [Z_1[AA], Z_2[AA], Z_3[AA]]
+
+def map_seq_to_int(sequence):
+    """
+    Maps a sequence of amino acids to a numpy array of corresponding integers
+
+    unkown AA are mapped to -1
+    """
+    sequence_array = np.zeros(len(sequence), dtype=int)
+    for i, AA in enumerate(sequence):
+        if AA in amino_acids:
+            sequence_array[i] = amino_acids_inversed_index[AA]
+        else:
+            sequence_array[i] = -1
+    return sequence_array
+
+@numba.jit
+def calc_correlation_feature(sequence_array, lag, prop_ind_1, prop_ind_2,
+                                descriptors=descriptors):
+    """
+    Calculates a single correction feature between between two properties and
+    a lag phase
+    """
+    feature_value = 0
+    n = len(sequence_array)
     for i in range( n - lag ):
-        if seq[ i ] in Za and seq[ i + lag ] in Zb:
-            AC += ( Za[ seq[ i ] ] * Zb[ seq[ i + lag ] ] )/( n - lag )
-    return AC
+        if sequence_array[i] != -1 and sequence_array[i + lag] != -1:
+            AA_i = sequence_array[i]
+            AA_j = sequence_array[i + lag]
+            feature_value += ( descriptors[AA_i, prop_ind_1] *\
+                        descriptors[AA_j, prop_ind_2] )/( n - lag )
+    return feature_value
+
+@numba.jit
+def fill_correlation_features(sequence_array, feature_vector, lag_range,
+                discriptors=descriptors):
+    k = len(lag_range)
+    n_AA, p = discriptors.shape
+    ind = 0
+    for lag in lag_range:
+        for prop_i in range(p):
+            for prop_j in range(p):
+                if prop_i >= prop_j:
+                    feature_vector[ind] = calc_correlation_feature(sequence_array,
+                    lag, prop_i, prop_j, descriptors)
+                    ind += 1
+    return feature_vector
 
 
-def protein_features(sequence, lagRange = range(1, 25),
-                    discriptors = [Z_1, Z_2, Z_3]):
+def protein_features(sequence, lag_range=range(1, 26),
+                    discriptors=descriptors):
     """
     Calculates features of protein sequences based on lagged correlation
     of physicochemical properties of the amino acids
     """
-    k = len(lagRange)
-    p = len(discriptors)
+    k = len(lag_range)
+    n_AA, p = discriptors.shape
     n_features = (p + (p * (p - 1)) / 2) * k
-    x = np.zeros(n_features)
-    ind = 0
-    for lag in lagRange:
-        for Z in discriptors:
-           x[ind] =  calc_AC(sequence, lag, Z)
-           ind += 1
-        for i in range(p-1):
-            for j in range(i+1, p):
-                x[ind] =  calc_AC(sequence, lag, discriptors[i], discriptors[j])
-                ind += 1
-    return x
-
+    feature_vector = np.zeros(n_features)
+    sequence_array = map_seq_to_int(sequence)
+    feature_vector = fill_correlation_features(sequence_array, feature_vector,
+                lag_range, discriptors=descriptors)
+    return feature_vector
 
 if __name__ == '__main__':
 
