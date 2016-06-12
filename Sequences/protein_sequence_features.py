@@ -52,7 +52,7 @@ def map_seq_to_int(sequence):
             sequence_array[i] = -1
     return sequence_array
 
-@numba.jit
+#@numba.jit
 def calc_correlation_feature(sequence_array, lag, prop_ind_1, prop_ind_2,
                                 descriptors=descriptors):
     """
@@ -61,15 +61,17 @@ def calc_correlation_feature(sequence_array, lag, prop_ind_1, prop_ind_2,
     """
     feature_value = 0
     n = len(sequence_array)
+    n_components = 0
     for i in range( n - lag ):
         if sequence_array[i] != -1 and sequence_array[i + lag] != -1:
             AA_i = sequence_array[i]
             AA_j = sequence_array[i + lag]
             feature_value += ( descriptors[AA_i, prop_ind_1] *\
-                        descriptors[AA_j, prop_ind_2] )/( n - lag )
-    return feature_value
+                        descriptors[AA_j, prop_ind_2] )
+            n_components += 1
+    return feature_value / n_components
 
-@numba.jit
+#@numba.jit
 def fill_correlation_features(sequence_array, feature_vector, lag_range,
                 discriptors=descriptors):
     k = len(lag_range)
