@@ -6,7 +6,7 @@ Created on Wed Jun 15 2016
 
 Module for generating samples from alignments of sequences (proteins or DNA/RNA)
 
-Includes functions for optimizing the sequences according to some criterium
+Includes functions for optimizing the sequences according to a given criterium
 """
 
 from Bio import AlignIO
