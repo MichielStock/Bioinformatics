@@ -35,11 +35,11 @@ mutations_with_activity = [(mut.split(','), log10(dh_mut/dh_wt)) for (mut, dh_mu
                                     skempi[['Mutation(s)_cleaned',
                                     'Affinity_mut (M)', 'Affinity_wt (M)']].values]
 
-barnstar_chains = {}
+chains = {}
 
 with open('1brs.pdb', 'r') as fh:
     for record in SeqIO.parse(fh, format='pdb-seqres'):
-        barnstar_chains[record.annotations['chain']] = record.seq
+        chains[record.annotations['chain']] = record.seq
 
 if __name__ == '__main__':
     # check the proteins
