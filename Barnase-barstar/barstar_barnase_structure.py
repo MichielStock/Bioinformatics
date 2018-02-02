@@ -13,6 +13,7 @@ from Bio.PDB.PDBParser import PDBParser
 import numpy as np
 from sklearn.metrics import pairwise_distances
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 def center_mass_residue(residue):
     """
@@ -26,6 +27,11 @@ def center_mass_residue(residue):
         mass += m
         coord += m * atom.coord
     return residue.resname, coord / mass
+
+def coord_CA_residue(residue):
+    """
+    Return the coordinate of the CA 
+    """
 
 # load file
 parser = PDBParser()
@@ -65,4 +71,5 @@ fig.savefig('Figures/contact_maps.png')
 # 3d scatter plots
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-ax.plot_wire
+ax.scatter(coord_A[:,0], coord_A[:,1], coord_A[:,2], color='blue')
+ax.scatter(coord_D[:,0], coord_D[:,1], coord_D[:,2], color='red')
